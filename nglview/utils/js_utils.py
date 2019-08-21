@@ -1,6 +1,9 @@
 from functools import partial
 
-from IPython.display import HTML, Javascript, display
+try:
+    from IPython.display import HTML, Javascript, display
+except ImportError:
+    pass
 
 __alll__ = [
     'clean_error_output',

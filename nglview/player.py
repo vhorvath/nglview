@@ -5,7 +5,10 @@ import time
 import uuid
 from collections import defaultdict
 
-from IPython.display import Javascript, display
+try:
+    from IPython.display import Javascript, display
+except ImportError:
+    pass
 from ipywidgets import (Box, Button, Checkbox, ColorPicker, Dropdown,
                         FloatSlider, FloatText, HBox, IntSlider, IntText,
                         Label, Layout, Play, Tab, Text, Textarea, ToggleButton,

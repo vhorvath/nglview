@@ -104,7 +104,7 @@ class NGLView extends widgets.DOMWidgetView{
 
     createStage(){
         // init NGL stage
-        var stage_params = this.model.get("_ngl_full_stage_parameters");
+        var stage_params = this.model.get("_ngl_full_stage_parameters") || {};
         if (!("backgroundColor" in stage_params)){
             stage_params["backgroundColor"] = "white"
         }
@@ -179,7 +179,9 @@ class NGLView extends widgets.DOMWidgetView{
           this.handleEmbed()
       }
       var ngl_view_ids = this.model.get("_ngl_view_id")
-      ngl_view_ids.push(this.ngl_view_id)
+      if (ngl_view_ids){
+          ngl_view_ids.push(this.ngl_view_id)
+      }
       this.send({"type": "updateIDs", "data": ngl_view_ids})
 
       // FIXME: Why below doesn't update _ngl_view_id in backend?
@@ -366,7 +368,7 @@ class NGLView extends widgets.DOMWidgetView{
     }
 
     set_camera_orientation(orientation){
-        if (orientation.length > 0){
+        if (orientation && orientation.length > 0){
             this.stage.viewerControls.orient(orientation);
             this.serialize_camera_orientation();
         }
