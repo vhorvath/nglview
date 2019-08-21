@@ -1391,7 +1391,7 @@ class NGLWidget(DOMWidget):
                                         **other_kwargs)
 
         def callback(widget, msg=msg):
-            widget.send(msg)
+            widget.send(msg, buffers=[])
 
         callback._method_name = method_name
         callback._ngl_msg = msg
@@ -1478,10 +1478,10 @@ class NGLWidget(DOMWidget):
                               **kwargs)
 
     def _js_console(self):
-        self.send(dict(type='get', data='any'))
+        self.send(dict(type='get', data='any'), buffers=[])
 
     def _get_full_params(self):
-        self.send(dict(type='get', data='parameters'))
+        self.send(dict(type='get', data='parameters'), buffers=[])
 
     def _display_image(self):
         '''for testing
@@ -1552,7 +1552,7 @@ class Fullscreen(DOMWidget):
 
     def _js(self, code):
         msg = {"executeCode": code}
-        self.send(msg)
+        self.send(msg, buffers=[])
 
     @observe('_is_fullscreen')
     def _fullscreen_changed(self, change):
