@@ -1181,7 +1181,87 @@ class NGLView extends widgets.DOMWidgetView{
                 console.log("Number of components", this.stage.compList.length);
                 console.log("ngl_view_id", this.ngl_view_id);
             }
+        } else if (msg.type == 'prop_query') {
+            if (!msg.id) throw Error('Property query with missing id');
+            if (!msg.target) throw Error('Property query with missing target');
+
+            const reply = {
+                'type': 'prop_reply',
+                'id': msg.id,   // UUID4
+                'status': false,
+                'data': null,
+                'error' : null
+            }
+
+            const target_arr = msg.target.split('.');
+
+            if (target_arr.length == 0) throw Error(`Property ${msg.target} cannot be parsed, too short.`);
+            else if (target_arr.length == 1) target_arr.unshift('Widget');
+
+            let target_obj = this;
+
+            if (target_arr[0] == 'Widget') target_arr.shift();
+
+            for (let i = 0; i < target_arr.length - 1; i++) {
+                const target_field = target_arr[i];
+                try {
+                    target_obj = target_obj[target_field];
+                } catch (err) {
+                    reply.error = `Property query target ${msg.target} does not exist.`;
+                    break;
+                }
+            }
+
+            const property_field = target_arr[target_arr.length - 1];
+
+            let return_val;
+            if (property_field.endsWith('()')) {
+                try {
+                    return_val = target_obj[property_field.slice(0, -2)]();
+                    reply.status = true;
+                } catch (err) {
+                    reply.error = `Evaluation of method ${msg.target} failed, check JS console.`;
+                    console.error(err);
+                }
+            } else if (!target_obj.hasOwnProperty(property_field)) {
+                reply.error = `Property query target ${msg.target} does not exist.`;
+            } else {
+                return_val = target_obj[property_field];
+                reply.status = true;
+            }
+
+            if (msg.stringify) {
+                try {
+                    return_val = JSON.stringify(return_val)
+                    reply.status = true;
+                } catch (err) {
+                    console.log(return_val);
+                    reply.error = 'Return value cannot be JSON serialized.';
+                }
+            }
+
+            reply.data = return_val === undefined ? null : return_val;
+
+            this.send(reply);
+            // console.log(reply);
+        } else if (msg.type == 'loadFile_blocking') {
+            if (this.model.views.length > 1 && msg.kwargs &&
+                msg.kwargs.defaultRepresentation) {
+                // no need to add default representation as all representations
+                // are serialized separately, also it unwantedly sets the orientation
+                msg.kwargs.defaultRepresentation = false
+            }
+            this._handleStageLoadFile(msg);
+            this.send({
+                'type': 'loadFile_reply',
+                'id': msg.id,   // UUID4
+                'status': true
+            });
         }
+    }
+
+    get_component_uuids() {
+        return this.stage.compList.map(element => element.uuid.toLowerCase());
     }
 }
 

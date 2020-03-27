@@ -4,6 +4,7 @@ import logging
 import threading
 import time
 import uuid
+import zmq
 
 import ipywidgets as widgets
 import ipywidgets.embed
@@ -1260,10 +1261,21 @@ class NGLWidget(DOMWidget):
 
         name = py_utils.get_name(obj, kwargs2)
         self._ngl_component_names.append(name)
-        self._remote_call("loadFile",
-                          target='Stage',
-                          args=args,
-                          kwargs=kwargs2)
+
+        msg = self._get_remote_call_msg('',
+                                        target='',
+                                        args=args,
+                                        kwargs=kwargs2)
+
+        msg['type'] = 'loadFile_blocking'
+
+        n_comps = self._get_remote_prop('stage.compList.length')
+        self.send(msg)
+        while True:
+            time.sleep(0.01)
+            if self._get_remote_prop('stage.compList.length') > n_comps:
+                break
+
 
     def remove_component(self, c):
         """remove component by its uuid.
@@ -1550,6 +1562,66 @@ class NGLWidget(DOMWidget):
         """
         for i, _ in enumerate(self._ngl_component_ids):
             yield self[i]
+
+    def _get_remote_prop(self, target='Widget', stringify=False):
+        msg_id = str(uuid.uuid4())
+
+        msg = dict(
+            id=msg_id,
+            type='prop_query',
+            target=target,
+            stringify=stringify is True
+        )
+
+        self.send(msg)
+
+        while True:
+            js_msg = self._handle_recv(self.comm.kernel.shell_streams[0])
+            js_json = json.loads(js_msg[6].bytes.decode('utf-8'))
+
+            try:
+                js_content = js_json['data']['content']
+            except KeyError:
+                continue
+
+            if js_content['type'] != 'prop_reply':
+                continue
+
+            try:
+                if js_content['id'] != msg_id:
+                    continue
+            except KeyError:
+                continue
+
+            if not js_content['status']:
+                raise Exception(js_content['error'] if js_content['error'] else 'Property retreival error')
+
+            return js_content['data']
+
+    def _handle_recv(self, zmq_stream):
+        """Handle a recv event with blocking the current thread."""
+        if zmq_stream._flushed:
+            return
+        try:
+            msg = zmq_stream.socket.recv_multipart(zmq.BLOCKY, copy=zmq_stream._recv_copy)
+        except zmq.ZMQError as e:
+            if e.errno == zmq.EAGAIN:
+                # state changed since poll event
+                pass
+            else:
+                raise
+        else:
+            if zmq_stream._recv_callback:
+                callback = zmq_stream._recv_callback
+                zmq_stream._run_callback(callback, msg)
+
+        return msg
+
+    @property
+    def _js_ngl_component_ids(self):
+        return self._get_remote_prop('Widget.get_component_uuids()')
+
+
 
 
 class Fullscreen(DOMWidget):
